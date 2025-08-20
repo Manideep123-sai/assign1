@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tic Tac Toe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f4f4f4;
+    }
+    .container {
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      margin-top: 15px;
+    }
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: white;
+      border: 2px solid #333;
+      font-size: 2rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    .cell.taken {
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 1.2rem;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #modeSelection {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tic Tac Toe</h1>
+    <div id="modeSelection">
+      <p>Choose Game Mode:</p>
+      <button onclick="setMode('pvp')">Player vs Player</button>
+      <button onclick="setMode('pvc')">Player vs Computer</button>
+    </div>
+    <div class="board" id="board" style="display:none;"></div>
+    <p id="status"></p>
+    <button id="restartBtn" style="display:none;" onclick="resetGame()">Restart Game</button>
+  </div>
+
+  <script>
+    const board = document.getElementById("board");
+    const statusText = document.getElementById("status");
+    const restartBtn = document.getElementById("restartBtn");
+    const modeSelection = document.getElementById("modeSelection");
+
+    let currentPlayer = "X";
+    let gameActive = true;
+    let gameState = ["", "", "", "", "", "", "", "", ""];
+    let mode = "";
+
+    const winConditions = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function setMode(selectedMode) {
+      mode = selectedMode;
+      modeSelection.style.display = "none";
+      board.style.display = "grid";
+      restartBtn.style.display = "inline-block";
+      resetGame();
+    }
+
+    function handleCellClick(index) {
+      if (gameState[index] !== "" || !gameActive) return;
+      gameState[index] = currentPlayer;
+      renderBoard();
+      if (checkWinner()) return;
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      if (gameActive) statusText.textContent = `Player ${currentPlayer}'s turn`;
+      if (mode === "pvc" && currentPlayer === "O" && gameActive) {
+        setTimeout(computerMove, 400);
+      }
+    }
+
+    function renderBoard() {
+      board.innerHTML = "";
+      gameState.forEach((cell, index) => {
+        const div = document.createElement("div");
+        div.classList.add("cell");
+        if (cell !== "") div.classList.add("taken");
+        div.textContent = cell;
+        div.addEventListener("click", () => handleCellClick(index));
+        board.appendChild(div);
+      });
+    }
+
+    function checkWinner() {
+      for (let condition of winConditions) {
+        const [a, b, c] = condition;
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+          statusText.textContent = `Player ${currentPlayer} Wins! 🎉`;
+          gameActive = false;
+          return true;
+        }
+      }
+      if (!gameState.includes("")) {
+        statusText.textContent = "It's a Draw! 🤝";
+        gameActive = false;
+        return true;
+      }
+      return false;
+    }
+
+    function computerMove() {
+      let bestScore = -Infinity;
+      let move;
+      for (let i = 0; i < 9; i++) {
+        if (gameState[i] === "") {
+          gameState[i] = "O";
+          let score = minimax(gameState, 0, false);
+          gameState[i] = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+      gameState[move] = "O";
+      renderBoard();
+      if (checkWinner()) return;
+      currentPlayer = "X";
+      if (gameActive) statusText.textContent = `Player ${currentPlayer}'s turn`;
+    }
+
+    function minimax(state, depth, isMaximizing) {
+      let result = evaluate(state);
+      if (result !== null) return result;
+
+      if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (state[i] === "") {
+            state[i] = "O";
+            let score = minimax(state, depth + 1, false);
+            state[i] = "";
+            bestScore = Math.max(score, bestScore);
+          }
+        }
+        return bestScore;
+      } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (state[i] === "") {
+            state[i] = "X";
+            let score = minimax(state, depth + 1, true);
+            state[i] = "";
+            bestScore = Math.min(score, bestScore);
+          }
+        }
+        return bestScore;
+      }
+    }
+
+    function evaluate(state) {
+      for (let condition of winConditions) {
+        const [a, b, c] = condition;
+        if (state[a] && state[a] === state[b] && state[a] === state[c]) {
+          if (state[a] === "O") return 10;
+          else if (state[a] === "X") return -10;
+        }
+      }
+      if (!state.includes("")) return 0;
+      return null;
+    }
+
+    function resetGame() {
+      gameActive = true;
+      currentPlayer = "X";
+      gameState = ["", "", "", "", "", "", "", "", ""];
+      statusText.textContent = `Player X's turn`;
+      renderBoard();
+    }
+  </script>
+</body>
+</html>
