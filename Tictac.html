@@ -43,13 +43,13 @@
       margin-top: 20px;
       font-size: 1.2rem;
     }
-    button {
+    button, select {
       margin: 5px;
       padding: 10px 20px;
       font-size: 1rem;
       cursor: pointer;
     }
-    #modeSelection {
+    #modeSelection, #computerOptions {
       margin-top: 20px;
     }
   </style>
@@ -57,26 +57,63 @@
 <body>
   <div class="container">
     <h1>Tic Tac Toe</h1>
+
+    <!-- First menu -->
     <div id="modeSelection">
       <p>Choose Game Mode:</p>
       <button onclick="setMode('pvp')">Player vs Player</button>
-      <button onclick="setMode('pvc')">Player vs Computer</button>
+      <button onclick="showComputerOptions()">Player vs Computer</button>
     </div>
+
+    <!-- Computer options -->
+    <div id="computerOptions" style="display:none;">
+      <p>Select Difficulty:</p>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <p>Who goes first?</p>
+      <select id="firstMove">
+        <option value="player">You</option>
+        <option value="computer">Computer</option>
+      </select>
+      <p>Choose your symbol:</p>
+      <select id="playerSymbol">
+        <option value="X">X</option>
+        <option value="O">O</option>
+      </select>
+      <br>
+      <button onclick="startComputerGame()">Start</button>
+      <button onclick="backToMain()">Back</button>
+    </div>
+
+    <!-- Game board -->
     <div class="board" id="board" style="display:none;"></div>
     <p id="status"></p>
     <button id="restartBtn" style="display:none;" onclick="resetGame()">Restart Game</button>
+    <button id="backBtn" style="display:none;" onclick="backToMain()">Back</button>
   </div>
 
   <script>
     const board = document.getElementById("board");
     const statusText = document.getElementById("status");
     const restartBtn = document.getElementById("restartBtn");
+    const backBtn = document.getElementById("backBtn");
     const modeSelection = document.getElementById("modeSelection");
+    const computerOptions = document.getElementById("computerOptions");
+    const difficultySelect = document.getElementById("difficulty");
+    const firstMoveSelect = document.getElementById("firstMove");
+    const playerSymbolSelect = document.getElementById("playerSymbol");
 
     let currentPlayer = "X";
     let gameActive = true;
     let gameState = ["", "", "", "", "", "", "", "", ""];
     let mode = "";
+    let difficulty = "easy";
+    let playerSymbol = "X";
+    let computerSymbol = "O";
+    let firstMove = "player";
 
     const winConditions = [
       [0,1,2], [3,4,5], [6,7,8],
@@ -89,17 +126,50 @@
       modeSelection.style.display = "none";
       board.style.display = "grid";
       restartBtn.style.display = "inline-block";
+      backBtn.style.display = "inline-block";
       resetGame();
+    }
+
+    function showComputerOptions() {
+      modeSelection.style.display = "none";
+      computerOptions.style.display = "block";
+    }
+
+    function startComputerGame() {
+      mode = "pvc";
+      difficulty = difficultySelect.value;
+      firstMove = firstMoveSelect.value;
+      playerSymbol = playerSymbolSelect.value;
+      computerSymbol = playerSymbol === "X" ? "O" : "X";
+      computerOptions.style.display = "none";
+      board.style.display = "grid";
+      restartBtn.style.display = "inline-block";
+      backBtn.style.display = "inline-block";
+      resetGame();
+      if (firstMove === "computer") {
+        currentPlayer = computerSymbol;
+        computerMove();
+      }
+    }
+
+    function backToMain() {
+      modeSelection.style.display = "block";
+      computerOptions.style.display = "none";
+      board.style.display = "none";
+      restartBtn.style.display = "none";
+      backBtn.style.display = "none";
+      statusText.textContent = "";
     }
 
     function handleCellClick(index) {
       if (gameState[index] !== "" || !gameActive) return;
+      if (mode === "pvc" && currentPlayer !== playerSymbol) return;
       gameState[index] = currentPlayer;
       renderBoard();
       if (checkWinner()) return;
       currentPlayer = currentPlayer === "X" ? "O" : "X";
       if (gameActive) statusText.textContent = `Player ${currentPlayer}'s turn`;
-      if (mode === "pvc" && currentPlayer === "O" && gameActive) {
+      if (mode === "pvc" && currentPlayer === computerSymbol && gameActive) {
         setTimeout(computerMove, 400);
       }
     }
@@ -134,11 +204,31 @@
     }
 
     function computerMove() {
-      let bestScore = -Infinity;
       let move;
+      if (difficulty === "easy") {
+        move = randomMove();
+      } else if (difficulty === "medium") {
+        move = Math.random() < 0.5 ? randomMove() : bestMove();
+      } else {
+        move = bestMove();
+      }
+      gameState[move] = computerSymbol;
+      renderBoard();
+      if (checkWinner()) return;
+      currentPlayer = playerSymbol;
+      if (gameActive) statusText.textContent = `Player ${currentPlayer}'s turn`;
+    }
+
+    function randomMove() {
+      let available = gameState.map((v,i)=> v===""?i:null).filter(v=>v!==null);
+      return available[Math.floor(Math.random() * available.length)];
+    }
+
+    function bestMove() {
+      let bestScore = -Infinity, move;
       for (let i = 0; i < 9; i++) {
         if (gameState[i] === "") {
-          gameState[i] = "O";
+          gameState[i] = computerSymbol;
           let score = minimax(gameState, 0, false);
           gameState[i] = "";
           if (score > bestScore) {
@@ -147,22 +237,17 @@
           }
         }
       }
-      gameState[move] = "O";
-      renderBoard();
-      if (checkWinner()) return;
-      currentPlayer = "X";
-      if (gameActive) statusText.textContent = `Player ${currentPlayer}'s turn`;
+      return move;
     }
 
     function minimax(state, depth, isMaximizing) {
       let result = evaluate(state);
       if (result !== null) return result;
-
       if (isMaximizing) {
         let bestScore = -Infinity;
         for (let i = 0; i < 9; i++) {
           if (state[i] === "") {
-            state[i] = "O";
+            state[i] = computerSymbol;
             let score = minimax(state, depth + 1, false);
             state[i] = "";
             bestScore = Math.max(score, bestScore);
@@ -173,7 +258,7 @@
         let bestScore = Infinity;
         for (let i = 0; i < 9; i++) {
           if (state[i] === "") {
-            state[i] = "X";
+            state[i] = playerSymbol;
             let score = minimax(state, depth + 1, true);
             state[i] = "";
             bestScore = Math.min(score, bestScore);
@@ -187,8 +272,8 @@
       for (let condition of winConditions) {
         const [a, b, c] = condition;
         if (state[a] && state[a] === state[b] && state[a] === state[c]) {
-          if (state[a] === "O") return 10;
-          else if (state[a] === "X") return -10;
+          if (state[a] === computerSymbol) return 10;
+          else if (state[a] === playerSymbol) return -10;
         }
       }
       if (!state.includes("")) return 0;
@@ -199,9 +284,10 @@
       gameActive = true;
       currentPlayer = "X";
       gameState = ["", "", "", "", "", "", "", "", ""];
-      statusText.textContent = `Player X's turn`;
+      statusText.textContent = `Player ${currentPlayer}'s turn`;
       renderBoard();
     }
   </script>
 </body>
 </html>
+
